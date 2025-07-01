@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Me Bot – AI Med Spa Concierge</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .spa-card:hover { background-color: #f9f9f9; }
+  </style>
+</head>
+<body class="bg-white text-black">
+  <section class="min-h-screen px-4 py-10 flex flex-col items-center text-center">
+    <h1 class="text-4xl font-semibold tracking-tight">Book Me Bot</h1>
+    <p class="text-neutral-600 mt-2 max-w-xl">Let AI find, contact, and book the perfect med spa appointment for you. You only pay <strong>$1.99</strong> when it's confirmed.</p>
+
+    <!-- Step 1: User Info -->
+    <form id="formStep1" class="w-full max-w-md mt-10 space-y-4">
+      <input required name="zipcode" placeholder="Enter your ZIP code" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+      <input required name="email" placeholder="Your email" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+      <input required name="service" placeholder="What service are you looking for? (e.g. facial)" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+      <input required type="date" name="date" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+      <input required name="range" placeholder="Price range (e.g. $100–$250)" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+      <button type="submit" class="w-full px-6 py-3 bg-black text-white rounded-lg">Find Spas</button>
+    </form>
+
+    <!-- Step 2: Show Spa Options -->
+    <div id="spaResults" class="hidden w-full max-w-2xl mt-12 space-y-4"></div>
+  </section>
+
+  <script type="module">
+    const formStep1 = document.getElementById('formStep1');
+    const spaResults = document.getElementById('spaResults');
+
+    formStep1.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(formStep1);
+      const userData = Object.fromEntries(formData.entries());
+
+      // Simulated nearby spa options
+      const spaList = [
+        {
+          name: "Glow Med Spa",
+          address: "123 Sunset Blvd, Los Angeles, CA",
+          stars: 4.7,
+          price: 139,
+          lat: 34.098, lng: -118.329
+        },
+        {
+          name: "Elite Aesthetics",
+          address: "456 Beverly Dr, Beverly Hills, CA",
+          stars: 4.9,
+          price: 169,
+          lat: 34.068, lng: -118.401
+        },
+        {
+          name: "Radiance Clinic",
+          address: "789 Ocean Ave, Santa Monica, CA",
+          stars: 4.6,
+          price: 149,
+          lat: 34.009, lng: -118.497
+        }
+      ];
+
+      formStep1.classList.add('hidden');
+      spaResults.innerHTML = '<h2 class="text-2xl font-medium mb-4">Choose a spa below:</h2>';
+
+      spaList.forEach((spa, index) => {
+        const totalPrice = (spa.price + 1.99).toFixed(2);
+        const mapLink = `https://www.google.com/maps/search/?api=1&query=${spa.lat},${spa.lng}`;
+        spaResults.innerHTML += `
+          <div class="spa-card p-4 border border-gray-200 rounded-xl transition-all cursor-pointer text-left" onclick="confirmBooking(${index})">
+            <h3 class="text-lg font-semibold">${spa.name}</h3>
+            <p class="text-sm text-neutral-600">${spa.address} — <a href="${mapLink}" target="_blank" class="underline text-blue-600">See on map</a></p>
+            <p class="text-sm mt-1">⭐ ${spa.stars} — Base Price: $${spa.price} + $1.99 fee = <strong>$${totalPrice}</strong></p>
+          </div>
+        `;
+      });
+
+      spaResults.classList.remove('hidden');
+
+      window.confirmBooking = function(index) {
+        const chosenSpa = spaList[index];
+        const total = (chosenSpa.price + 1.99).toFixed(2);
+        document.body.innerHTML = `
+          <section class="min-h-screen flex flex-col justify-center items-center text-center px-6">
+            <h2 class="text-3xl font-semibold mb-4">Your Appointment is Confirmed</h2>
+            <div class="text-lg text-neutral-700 space-y-2">
+              <p><strong>Spa:</strong> ${chosenSpa.name}</p>
+              <p><strong>Address:</strong> ${chosenSpa.address}</p>
+              <p><strong>Date:</strong> ${userData.date}</p>
+              <p><strong>Total Price:</strong> $${total} <span class="text-sm text-neutral-500">(includes $1.99 fee)</span></p>
+            </div>
+            <button id="payBtn" class="mt-8 px-6 py-3 bg-black text-white rounded-lg">Pay Now</button>
+          </section>
+        `;
+
+        const stripe = Stripe('pk_test_yourPublicKeyHere'); // Replace with your publishable key
+
+        document.getElementById('payBtn').addEventListener('click', async () => {
+          const session = await fetch("/api/create-checkout-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              price: Math.round(parseFloat(total) * 100),
+              service: userData.service
+            })
+          }).then(res => res.json());
+
+          stripe.redirectToCheckout({ sessionId: session.id });
+        });
+      };
+    });
+  </script>
+</body>
+</html>
